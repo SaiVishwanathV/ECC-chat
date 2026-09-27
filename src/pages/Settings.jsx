@@ -192,18 +192,18 @@ export default function Settings({ user }) {
   ];
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-[#F6F8FC] selection:bg-blue-500/20">
+    <div className="min-h-screen w-screen flex flex-col bg-[#F6F8FC] selection:bg-blue-500/20 pb-16 md:pb-0">
       <Navbar currentUserProfile={profile} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Settings</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Settings</h1>
           <p className="text-xs text-slate-500">Manage your profile, security keys, and app preferences</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Navigation Sidebar */}
-          <div className="space-y-1">
+          <div className="flex flex-row md:flex-col overflow-x-auto gap-2 md:gap-0 pb-2 md:pb-0 md:space-y-1 no-scrollbar">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -211,21 +211,21 @@ export default function Settings({ user }) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-semibold transition-all duration-200 text-left ${
+                  className={`flex items-center gap-2.5 px-4 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all duration-200 text-left shrink-0 whitespace-nowrap ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                       : 'glass-panel text-slate-600 hover:text-slate-900 hover:bg-white/80'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{tab.label}</span>
                 </button>
               );
             })}
           </div>
 
           {/* Tab Content Panel */}
-          <div className="md:col-span-3 space-y-6">
+          <div className="md:col-span-3 space-y-6 min-w-0">
             {/* 1. Security & Keys Tab */}
             {activeTab === 'security' && (
               <div className="space-y-6">

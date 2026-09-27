@@ -10,7 +10,7 @@ export default function AvatarPicker({ selectedAvatar = 'avatar01', onSelectAvat
       </label>
 
       <div className="glass-card rounded-3xl p-4 max-h-56 overflow-y-auto border border-white/80 shadow-inner">
-        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3">
           {AVATARS.map((avatar) => {
             const isSelected = selectedAvatar === avatar.id;
             return (

@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 /**
@@ -227,8 +227,12 @@ export async function decryptMessage({
   const ciphertext = message.ciphertext || message.encryptedMessage;
   const iv = message.iv;
 
-  if (!ciphertext || !iv || !userPrivateKey || !senderPublicKey) {
+  if (!ciphertext || !iv) {
     return '';
+  }
+
+  if (!userPrivateKey || !senderPublicKey) {
+    return 'Cannot decrypt — message encrypted with an older key pair.';
   }
 
   const privateKeyExists = !!userPrivateKey;
@@ -282,7 +286,7 @@ export async function decryptMessage({
 
     console.error("ECC Decryption Failed:", error);
     console.error("Message ID:", message.id);
-    return '[Encrypted message]';
+    return 'Cannot decrypt — message encrypted with an older key pair.';
   }
 }
 
@@ -304,7 +308,7 @@ export function getHistoricalPrivateKeys(userId) {
  * 1. Generates a brand-new ECDH P-256 key pair via Web Crypto API.
  * 2. Exports public key as Base64/SPKI.
  * 3. Exports private key as PKCS8 Base64.
- * 4. Archives old private key into localStorage and user_keys history to keep old chats decryptable.
+ * 4. Archives old private key into localStorage history to keep old chats decryptable.
  * 5. Replaces active keys in localStorage.
  * 6. Computes new SHA-256 fingerprint.
  * 7. Updates Firestore /users/{uid} with:
@@ -352,29 +356,7 @@ export async function rotateUserKeyPair(userId) {
   // 5. Compute new SHA-256 fingerprint
   const newFingerprint = await generateFingerprint(newPublicKeyBase64);
 
-  // 6. Persist in Firestore user_keys with history
-  try {
-    const userKeyRef = doc(db, 'user_keys', userId);
-    const userKeySnap = await getDoc(userKeyRef);
-    const existingPrev =
-      userKeySnap.exists() && Array.isArray(userKeySnap.data().previousKeys)
-        ? userKeySnap.data().previousKeys
-        : [];
-    if (oldPriv) {
-      existingPrev.push({ privateKey: oldPriv, publicKey: oldPub, rotatedAt: Date.now() });
-    }
-    await setDoc(userKeyRef, {
-      publicKey: newPublicKeyBase64,
-      privateKey: newPrivateKeyBase64,
-      previousKeys: existingPrev,
-      userId,
-      keyUpdatedAt: serverTimestamp(),
-    });
-  } catch (err) {
-    console.warn('Could not persist key backup to user_keys:', err);
-  }
-
-  // 7. Update Firestore /users/{uid}
+  // 6. Update Firestore /users/{uid} with ONLY public key and fingerprint
   const userRef = doc(db, 'users', userId);
   await updateDoc(userRef, {
     publicKey: newPublicKeyBase64,
@@ -387,6 +369,8 @@ export async function rotateUserKeyPair(userId) {
     publicKey: newPublicKeyBase64,
     privateKey: newPrivateKeyBase64,
     fingerprint: newFingerprint,
+    publicKeyHex: newPublicKeyBase64,
+    privateKeyHex: newPrivateKeyBase64,
   };
 }
 
@@ -402,8 +386,8 @@ export async function generateFingerprint(publicKeyHex) {
 }
 
 /**
- * Ensures user has an ECC keypair in localStorage, or restores from Firestore user_keys,
- * or creates a new one once and persists it. Never regenerates after signup/login.
+ * Ensures user has an ECC keypair in localStorage.
+ * If no private key exists for current origin, generates a fresh pair and updates Firestore /users/{uid} public key.
  * Returns { publicKeyHex, privateKeyHex, publicKey, privateKey }.
  */
 export async function getOrGenerateUserKeyPair(userId, forceRegenerate = false) {
@@ -425,46 +409,30 @@ export async function getOrGenerateUserKeyPair(userId, forceRegenerate = false) 
     }
   }
 
-  // 2. Check Firestore persistent user_keys collection for this user
-  try {
-    const keyDocRef = doc(db, 'user_keys', userId);
-    const keySnap = await getDoc(keyDocRef);
-    if (keySnap.exists()) {
-      const data = keySnap.data();
-      if (data.privateKey && data.publicKey) {
-        localStorage.setItem(privKeyKey, data.privateKey);
-        localStorage.setItem(pubKeyKey, data.publicKey);
-        return {
-          publicKeyHex: data.publicKey,
-          privateKeyHex: data.privateKey,
-          publicKey: data.publicKey,
-          privateKey: data.privateKey,
-        };
-      }
-    }
-  } catch {
-    // If offline or rule error, proceed to generate
-  }
-
-  // 3. Generate keypair once
+  // 2. Generate new keypair if no local private key exists for current origin
   const keyPair = await generateKeyPair();
-  const publicKeyHex = await exportPublicKey(keyPair.publicKey);
-  const privateKeyHex = await exportPrivateKey(keyPair.privateKey);
+  const exportedPub = await window.crypto.subtle.exportKey('spki', keyPair.publicKey);
+  const publicKeyHex = bufToBase64(exportedPub);
+  const exportedPriv = await window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+  const privateKeyHex = bufToBase64(exportedPriv);
 
   // Store in localStorage
   localStorage.setItem(privKeyKey, privateKeyHex);
   localStorage.setItem(pubKeyKey, publicKeyHex);
 
-  // Persist in Firestore user_keys (so private key is never lost on login/incognito)
+  // Compute SHA-256 fingerprint
+  const fingerprint = await generateFingerprint(publicKeyHex);
+
+  // Update ONLY public key & fingerprint in Firestore /users/{uid}
   try {
-    const keyDocRef = doc(db, 'user_keys', userId);
-    await setDoc(keyDocRef, {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
       publicKey: publicKeyHex,
-      privateKey: privateKeyHex,
-      userId,
+      keyFingerprint: fingerprint,
+      keyUpdatedAt: serverTimestamp(),
     });
-  } catch {
-    // Non-blocking
+  } catch (err) {
+    console.warn('Could not update Firestore public key:', err);
   }
 
   return {

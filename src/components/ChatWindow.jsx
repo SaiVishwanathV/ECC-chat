@@ -14,6 +14,7 @@ import {
   BellOff,
   UserX,
   Trash2,
+  ChevronLeft,
 } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { formatFingerprint } from '../utils/fingerprint';
@@ -29,6 +30,7 @@ export default function ChatWindow({
   partnerUser,
   onSendMessage,
   onMarkRead,
+  onBackToList,
 }) {
   const [inputText, setInputText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -140,30 +142,40 @@ export default function ChatWindow({
     <div className="flex-1 flex h-full relative">
       <div className="flex-1 flex flex-col h-full bg-[#F6F8FC] relative overflow-hidden">
         {/* Header */}
-        <div className="h-16 px-6 glass-panel border-b border-white/60 flex items-center justify-between z-10">
-          <div className="flex items-center gap-3.5">
-            <div className="relative">
+        <div className="h-16 px-4 sm:px-6 glass-panel border-b border-white/60 flex items-center justify-between z-10 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+            {onBackToList && (
+              <button
+                onClick={onBackToList}
+                className="md:hidden p-1.5 -ml-1 rounded-full text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors shrink-0"
+                title="Back to Messages"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
+
+            <div className="relative shrink-0">
               <img
                 src={getAvatar(partnerUser.avatar || partnerUser.photoURL)}
                 alt={partnerUser.displayName}
-                className="w-10 h-10 rounded-full object-cover shadow-sm ring-2 ring-white/80"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shadow-sm ring-2 ring-white/80"
               />
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-slate-900 text-base">{partnerUser.displayName}</h3>
-                <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 truncate">
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base truncate">{partnerUser.displayName}</h3>
+                <span className="hidden xs:inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
                   <Lock className="w-3 h-3" /> E2EE
                 </span>
               </div>
-              <p className="text-xs text-slate-500">@{partnerUser.username || 'user'}</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">@{partnerUser.username || 'user'}</p>
             </div>
           </div>
 
           <button
             onClick={() => setShowProfileDrawer(!showProfileDrawer)}
-            className="p-2 rounded-full text-slate-500 hover:text-slate-800 hover:bg-white/80 transition-colors"
+            className="p-2 rounded-full text-slate-500 hover:text-slate-800 hover:bg-white/80 transition-colors shrink-0"
             title="Profile & Security Info"
           >
             <Info className="w-5 h-5" />
@@ -281,7 +293,7 @@ export default function ChatWindow({
 
       {/* Profile Drawer */}
       {showProfileDrawer && (
-        <div className="w-80 glass-panel border-l border-white/60 h-full overflow-y-auto p-6 flex flex-col z-20 animate-slide-left">
+        <div className="fixed sm:relative inset-y-0 right-0 z-30 w-full sm:w-80 glass-panel border-l border-white/60 h-full overflow-y-auto p-6 flex flex-col animate-slide-left">
           <div className="flex items-center justify-between pb-4 border-b border-white/50">
             <h3 className="font-bold text-slate-800 text-base">Contact Info</h3>
             <button
